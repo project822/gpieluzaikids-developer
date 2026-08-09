@@ -29,3 +29,5 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+# log server dev yang dijalankan otomatis
+dev-server.log
