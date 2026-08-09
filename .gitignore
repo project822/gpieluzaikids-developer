@@ -24,7 +24,7 @@ yarn-error.log*
 # Di Vercel, set env var di Settings → Environment Variables (bukan .env).
 .env
 .env.*
-!.env.example
+.env.example
 
 # typescript
 *.tsbuildinfo
