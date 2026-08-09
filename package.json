@@ -1,0 +1,28 @@
+{
+  "name": "eluzai-dev-dashboard",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Dashboard developer GPI Eluzai — kontrol website utama (D:\\church).",
+  "scripts": {
+    "dev": "next dev -p 22890",
+    "build": "next build",
+    "start": "next start -p 22890",
+    "lint": "eslint"
+  },
+  "dependencies": {
+    "bootstrap": "^5.3.8",
+    "jose": "^6.2.8",
+    "jspdf": "^2.5.2",
+    "jspdf-autotable": "^3.8.4",
+    "mongodb": "^7.5.0",
+    "mongoose": "^9.9.1",
+    "next": "16.3.0",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "eslint": "^9",
+    "eslint-config-next": "16.3.0"
+  }
+}
