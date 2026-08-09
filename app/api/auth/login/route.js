@@ -50,7 +50,15 @@ export async function POST(request) {
 
     if (!usernameOk || !passwordOk) {
       registerFailure({ ip, username });
-      logSecurityEvent({ type: 'failed_login', ip, path: '/api/auth/login', detail: `username="${username}"` });
+      // reason (hanya di log server, tidak dikirim ke client): username | password
+      // membantu diagnosis cepat — mis. DASHBOARD_PASSWORD di Vercel punya spasi
+      // tersembunyi atau nilai env-nya tidak cocok dengan yang diketik.
+      logSecurityEvent({
+        type: 'failed_login',
+        ip,
+        path: '/api/auth/login',
+        detail: `username="${username}" reason=${usernameOk ? 'password' : 'username'}`,
+      });
       return NextResponse.json(
         { error: 'Username atau password salah.' },
         { status: 401, headers: { 'Cache-Control': 'no-store' } }
