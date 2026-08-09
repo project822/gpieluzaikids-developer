@@ -27,7 +27,7 @@ async function forward(request, params, method) {
   if (result.status === 0) {
     return Response.json(
       {
-        error: `Website utama tidak dapat dijangkau (${SITE_BASE_URL}). Periksa koneksi atau status SITE_BASE_URL di .env.local.`,
+        error: `Website utama tidak dapat dijangkau (${SITE_BASE_URL}). Pastikan website utama online dan SITE_BASE_URL diisi dengan benar (development: .env.local; Vercel: Settings → Environment Variables).`,
         siteOnline: false,
       },
       { status: 502 }
