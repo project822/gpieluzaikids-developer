@@ -26,6 +26,9 @@ yarn-error.log*
 .env.*
 .env.example
 
+# file sementara daftar env untuk Vercel (berisi rahasia — jangan commit)
+/vercel-env-*.txt
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
