@@ -31,3 +31,4 @@ yarn-error.log*
 next-env.d.ts
 # log server dev yang dijalankan otomatis
 dev-server.log
+.dev-restart.log*

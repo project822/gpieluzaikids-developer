@@ -240,6 +240,12 @@ const PATHS = {
       <line x1="16" y1="17" x2="8" y2="17" />
     </>
   ),
+  copy: (
+    <>
+      <rect x="9" y="9" width="13" height="13" rx="2" />
+      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+    </>
+  ),
 };
 
 export default function Icon({ name, size = 20, className = '', style }) {

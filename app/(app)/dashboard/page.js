@@ -59,10 +59,17 @@ export default function DashboardPage() {
 
   async function unblock(ip) {
     try {
-      const res = await csrfFetch(`/api/dev/ip-ratelimit?ip=${encodeURIComponent(ip)}`, { method: 'DELETE' });
-      const json = await safeJson(res);
-      if (!res.ok) throw new Error(json.error || 'Gagal membuka blokir.');
-      setMsg({ type: 'success', text: `Blokir untuk ${ip} dibuka.` });
+      // Reset rate limit website utama + rate limit login dashboard (real-time).
+      const results = await Promise.all([
+        csrfFetch(`/api/dev/ip-ratelimit?ip=${encodeURIComponent(ip)}`, { method: 'DELETE' }),
+        csrfFetch(`/api/security/login-access?ip=${encodeURIComponent(ip)}`, { method: 'DELETE' }),
+      ]);
+      const bad = results.find((r) => !r.ok);
+      if (bad) {
+        const json = await safeJson(bad);
+        throw new Error(json.error || 'Gagal membuka blokir.');
+      }
+      setMsg({ type: 'success', text: `Rate limit & akses login untuk ${ip} dibuka.` });
       refresh();
     } catch (e) {
       setMsg({ type: 'error', text: e.message });
