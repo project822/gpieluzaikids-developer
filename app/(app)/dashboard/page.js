@@ -22,6 +22,22 @@ export default function DashboardPage() {
     return safeJson(res);
   }, 5000);
 
+  // Status maintenance dibaca LANGSUNG dari MongoDB bersama website utama
+  // (lib/maintenanceRepo.js) — bukan lewat proxy /api/dev/*. Dengan begitu
+  // toggle & teks tidak bergantung pada kunci DEV_API_KEY website utama
+  // (pola yang sama dengan fitur user database).
+  // Catatan: halaman ini tetap memerlukan /api/dev/status (proxy) untuk
+  // kartu status lain; bila website utama offline, kartu offline tampil lebih
+  // dulu. Maintenance sendiri ditulis langsung ke MongoDB.
+  // (Env MAINTENANCE_MODE dibaca dari proses dashboard — force-on di env
+  // website utama tidak terlihat di sini.)
+  const { data: maintenanceData, refresh: refreshMaintenance } = usePolling(async () => {
+    const res = await authedFetch('/api/system/maintenance');
+    if (!res.ok) throw new Error('Gagal memuat status maintenance.');
+    return safeJson(res);
+  }, 5000);
+  const maintenance = maintenanceData?.maintenance;
+
   // Status koneksi MongoDB milik dashboard ini (database eluzai-dashboard).
   // PENTING: /api/db/health mengembalikan HTTP 503 (gagal koneksi) / 500
   // (belum dikonfigurasi) dengan body JSON berisi status asli — jadi body
@@ -36,12 +52,12 @@ export default function DashboardPage() {
   const [msg, setMsg] = useState(null);
 
   async function toggleMaintenance() {
-    if (!data) return;
+    if (!maintenance) return;
     setToggling(true);
     setMsg(null);
-    const next = !data.maintenance.enabled;
+    const next = !maintenance.enabled;
     try {
-      const res = await csrfFetch('/api/dev/system/maintenance', {
+      const res = await csrfFetch('/api/system/maintenance', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ maintenance: next }),
@@ -49,7 +65,7 @@ export default function DashboardPage() {
       const json = await safeJson(res);
       if (!res.ok) throw new Error(json.error || 'Gagal mengubah maintenance mode.');
       setMsg({ type: 'success', text: `Maintenance mode ${next ? 'DIAKTIFKAN' : 'dinonaktifkan'}.` });
-      refresh();
+      refreshMaintenance();
     } catch (e) {
       setMsg({ type: 'error', text: e.message });
     } finally {
@@ -100,7 +116,7 @@ export default function DashboardPage() {
     );
   }
 
-  const { app, db, maintenance, rateLimitedIps } = data || {};
+  const { app, db, rateLimitedIps } = data || {};
   const siteOnline = Boolean(app);
   const rateCount = (rateLimitedIps || []).length;
 
@@ -188,7 +204,7 @@ export default function DashboardPage() {
                   type="checkbox"
                   checked={Boolean(maintenance?.enabled)}
                   onChange={toggleMaintenance}
-                  disabled={toggling || !siteOnline}
+                  disabled={toggling}
                 />
                 <span className="track" />
               </label>
@@ -202,7 +218,7 @@ export default function DashboardPage() {
             <button
               className="btn-dev w-100 justify-content-center"
               onClick={toggleMaintenance}
-              disabled={toggling || !siteOnline}
+              disabled={toggling}
               style={maintenance?.enabled ? { background: 'var(--dev-red-soft)', color: 'var(--dev-red)', fontWeight: 600 } : {}}
             >
               {toggling ? (

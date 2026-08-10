@@ -13,11 +13,17 @@ function injectBase(html, baseUrl) {
 }
 
 export default function SystemPage() {
-  const { data: status, loading, refresh } = usePolling(async () => {
-    const res = await authedFetch('/api/dev/status');
-    if (!res.ok) throw new Error('Gagal memuat status');
+  // Status & kontrol maintenance dibaca/ditulis LANGSUNG dari MongoDB bersama
+  // website utama (lib/maintenanceRepo.js) — bukan lewat proxy /api/dev/*.
+  // Konsisten dengan pola user database: tidak bergantung pada website utama
+  // online atau kecocokan DEV_API_KEY.
+  const { data: maintenanceData, error: maintenanceError, refresh: refreshMaintenance } = usePolling(async () => {
+    const res = await authedFetch('/api/system/maintenance');
+    if (!res.ok) throw new Error('Gagal memuat status maintenance.');
     return safeJson(res);
   }, 8000);
+  const maintenance = maintenanceData?.maintenance;
+  const maintenanceLoading = maintenanceData === null;
 
   const [preview, setPreview] = useState(null);
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -33,17 +39,17 @@ export default function SystemPage() {
   // menimpa teks yang sedang diketik user). Ditunda agar tidak memicu
   // setState sinkron dalam efek.
   useEffect(() => {
-    if (!status?.maintenance || hydrated.current) return;
+    if (!maintenance || hydrated.current) return;
     const id = setTimeout(() => {
       hydrated.current = true;
       setText({
-        title: status.maintenance.title || '',
-        message: status.maintenance.message || '',
-        footer: status.maintenance.footer || '',
+        title: maintenance.title || '',
+        message: maintenance.message || '',
+        footer: maintenance.footer || '',
       });
     }, 0);
     return () => clearTimeout(id);
-  }, [status?.maintenance]);
+  }, [maintenance]);
 
   const loadPreview = useCallback(async () => {
     setPreviewLoading(true);
@@ -67,14 +73,15 @@ export default function SystemPage() {
       loadPreview();
     }, 0);
     return () => clearTimeout(id);
-  }, [loadPreview, status?.maintenance?.enabled]);
+  }, [loadPreview, maintenance?.enabled]);
 
   function flash(type, textMsg) {
     setMsg({ type, text: textMsg });
     setTimeout(() => setMsg(null), 5000);
   }
 
-  // Simpan toggle + teks maintenance sekaligus (field yang dikirim diubah).
+  // Simpan toggle + teks maintenance sekaligus — tulis LANGSUNG ke MongoDB
+  // bersama website utama (endpoint lokal, bukan proxy).
   async function saveMaintenance({ toggle, next } = {}) {
     setSaving(true);
     setMsg(null);
@@ -85,7 +92,7 @@ export default function SystemPage() {
     };
     if (toggle) payload.maintenance = next;
     try {
-      const res = await csrfFetch('/api/dev/system/maintenance', {
+      const res = await csrfFetch('/api/system/maintenance', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -93,7 +100,7 @@ export default function SystemPage() {
       const json = await safeJson(res);
       if (!res.ok) throw new Error(json.error || 'Gagal menyimpan.');
       flash('success', 'Pengaturan maintenance disimpan.');
-      refresh();
+      refreshMaintenance();
     } catch (e) {
       flash('error', e.message);
     } finally {
@@ -101,7 +108,7 @@ export default function SystemPage() {
     }
   }
 
-  const maintenanceOn = Boolean(status?.maintenance?.enabled);
+  const maintenanceOn = Boolean(maintenance?.enabled);
 
   return (
     <div className="d-flex flex-column gap-4 fade-in">
@@ -119,15 +126,20 @@ export default function SystemPage() {
             sub="Berlaku seketika tanpa restart server."
             icon="wrench"
             actions={
-              status ? (
+              maintenance ? (
                 <StatusPill tone={maintenanceOn ? 'amber' : 'green'}>
                   {maintenanceOn ? 'AKTIF' : 'NONAKTIF'}
                 </StatusPill>
               ) : null
             }
           >
-            {loading && !status ? (
-              <Spinner label="Memuat status..." />
+            {maintenanceLoading && !maintenance ? (
+              <Spinner label="Memuat status maintenance..." />
+            ) : maintenanceError && !maintenance ? (
+              <div className="alert-dev alert-dev-danger mb-0">
+                <Icon name="ban" size={16} style={{ marginRight: 6 }} />
+                Gagal memuat status maintenance: {maintenanceError}. Pastikan MongoDB dashboard terhubung.
+              </div>
             ) : (
               <>
                 <div className="d-flex align-items-center justify-content-between gap-3 mb-3">
