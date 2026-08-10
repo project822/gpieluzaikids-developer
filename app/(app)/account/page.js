@@ -16,7 +16,7 @@ import { authedFetch, csrfFetch, safeJson } from '@/lib/csrfClient';
 
 export default function AccountPage() {
   const { data, error, loading, refresh } = usePolling(async () => {
-    const res = await authedFetch('/api/dev/users');
+    const res = await authedFetch('/api/users');
     if (!res.ok) throw new Error('Gagal memuat user.');
     return safeJson(res);
   }, 10000);
@@ -45,7 +45,7 @@ export default function AccountPage() {
     e.preventDefault();
     setBusy(true);
     try {
-      const res = await csrfFetch('/api/dev/users', {
+      const res = await csrfFetch('/api/users', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(form),
@@ -67,7 +67,7 @@ export default function AccountPage() {
     if (!resetTarget) return;
     setResetBusy(true);
     try {
-      const res = await csrfFetch(`/api/dev/users/${resetTarget.id}`, {
+      const res = await csrfFetch(`/api/users/${resetTarget.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ password: newPassword }),
@@ -87,7 +87,7 @@ export default function AccountPage() {
 
   async function toggleActive(user) {
     try {
-      const res = await csrfFetch(`/api/dev/users/${user.id}`, {
+      const res = await csrfFetch(`/api/users/${user.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ active: !user.active }),
@@ -105,7 +105,7 @@ export default function AccountPage() {
     if (!deleteTarget) return;
     setDeleteBusy(true);
     try {
-      const res = await csrfFetch(`/api/dev/users/${deleteTarget.id}`, { method: 'DELETE' });
+      const res = await csrfFetch(`/api/users/${deleteTarget.id}`, { method: 'DELETE' });
       const json = await safeJson(res);
       if (!res.ok) throw new Error(json.error || 'Gagal menghapus user.');
       flash('success', `User "${deleteTarget.username}" dihapus.`);
@@ -177,7 +177,7 @@ export default function AccountPage() {
             </form>
             <div className="alert-dev alert-dev-blue mt-3 mb-0" style={{ fontSize: '0.8rem' }}>
               <Icon name="lock" size={14} style={{ marginRight: 6 }} />
-              Password di-hash <strong>scrypt</strong> di server website utama.
+              Password di-hash <strong>scrypt</strong> lalu disimpan langsung ke database website utama.
             </div>
           </Card>
         </div>
@@ -186,7 +186,7 @@ export default function AccountPage() {
         <div className="col-lg-8">
           <Card
             title="Daftar Admin"
-            sub={`${users.length} akun · kredensial env (super admin cadangan) tidak ditampilkan di sini`}
+            sub={`${users.length} akun · disimpan real time di database website utama`}
             icon="users"
             actions={
               <button className="btn-dev btn-dev-ghost btn-sm-dev" onClick={refresh} title="Segarkan">
