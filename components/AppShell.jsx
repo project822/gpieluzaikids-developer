@@ -1,11 +1,13 @@
 'use client';
 
+import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState } from 'react';
 import Icon from './Icon';
 import ThemeToggle from './ThemeToggle';
 import { csrfFetch } from '@/lib/csrfClient';
+import logo from './logo-placeholder.webp';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:22889';
 
@@ -54,9 +56,7 @@ export default function AppShell({ children }) {
       {/* Sidebar desktop */}
       <aside className="dev-sidebar p-3">
         <Link href="/dashboard" className="d-flex align-items-center gap-3 text-decoration-none px-2 pt-2 pb-4">
-          <span className="brand-logo">
-            <Icon name="shield" size={17} />
-          </span>
+          <Image src={logo} alt="Logo Eluzai Kids" width={34} height={34} className="brand-logo-img" />
           <span className="brand-name">Eluzai Dev</span>
         </Link>
 
@@ -94,9 +94,7 @@ export default function AppShell({ children }) {
       <div className="d-md-none position-sticky top-0" style={{ zIndex: 1035, background: 'var(--dev-surface)', borderBottom: '1px solid var(--dev-border)' }}>
         <div className="d-flex align-items-center justify-content-between px-3 py-2">
           <Link href="/dashboard" className="d-flex align-items-center gap-2 text-decoration-none">
-            <span className="brand-logo" style={{ width: 34, height: 34, borderRadius: 10 }}>
-              <Icon name="shield" size={17} />
-            </span>
+            <Image src={logo} alt="Logo Eluzai Kids" width={34} height={34} className="brand-logo-img" />
             <span className="fw-bold" style={{ fontSize: '0.95rem' }}>Eluzai Dev</span>
           </Link>
           <div className="d-flex gap-2 align-items-center">

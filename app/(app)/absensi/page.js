@@ -1,9 +1,6 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import * as XLSX from 'xlsx';
-import { jsPDF } from 'jspdf';
-import autoTable from 'jspdf-autotable';
 import Icon from '@/components/Icon';
 import { Card, StatCard, Spinner, EmptyState, Modal } from '@/components/ui/DevUI';
 import { authedFetch, csrfFetch, safeJson } from '@/lib/csrfClient';
@@ -235,25 +232,47 @@ export default function AbsensiPage() {
     return `Rekap Kehadiran ${monthLabel(selectedMonth)}`;
   };
 
-  function exportExcel() {
+  async function exportExcel() {
     const rows = exportRows();
     if (!rows.length) {
       flash('error', 'Tidak ada data untuk diekspor.');
       return;
     }
-    const ws = XLSX.utils.json_to_sheet(rows);
-    ws['!cols'] = [{ wch: 24 }, { wch: 8 }, { wch: 8 }, { wch: 8 }, { wch: 14 }];
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Rekap Kehadiran');
-    XLSX.writeFile(wb, `${exportTitle()}.xlsx`);
+    // exceljs — pengganti sheetjs/xlsx yang sudah tidak di-patch di npm
+    // (CVE prototype pollution & ReDoS tanpa fix). Pola sama dengan
+    // website utama (lib/attendanceExport.js). Dimuat dinamis agar
+    // bundle awal halaman absensi tetap ringan.
+    const ExcelJS = (await import('exceljs')).default;
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('Rekap Kehadiran');
+    ws.columns = [
+      { header: 'Bulan', key: 'Bulan', width: 24 },
+      { header: 'Sesi', key: 'Sesi', width: 8 },
+      { header: 'Hadir', key: 'Hadir', width: 8 },
+      { header: 'Catatan', key: 'Catatan', width: 8 },
+      { header: 'Kehadiran (%)', key: 'Kehadiran (%)', width: 14 },
+    ];
+    ws.addRows(rows);
+    const buf = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buf], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${exportTitle()}.xlsx`;
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
-  function exportPdf() {
+  async function exportPdf() {
     const rows = exportRows();
     if (!rows.length) {
       flash('error', 'Tidak ada data untuk diekspor.');
       return;
     }
+    const { jsPDF } = await import('jspdf');
+    const { default: autoTable } = await import('jspdf-autotable');
     const doc = new jsPDF({ orientation: 'landscape' });
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(13);
@@ -272,8 +291,8 @@ export default function AbsensiPage() {
   async function runExport(kind) {
     setExporting(kind);
     try {
-      if (kind === 'excel') exportExcel();
-      else exportPdf();
+      if (kind === 'excel') await exportExcel();
+      else await exportPdf();
     } catch (e) {
       flash('error', `Gagal membuat ${kind === 'excel' ? 'Excel' : 'PDF'}: ${e.message}`);
     } finally {

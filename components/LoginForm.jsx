@@ -1,9 +1,11 @@
 'use client';
 
+import Image from 'next/image';
 import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Icon from './Icon';
 import { csrfFetch, safeJson } from '@/lib/csrfClient';
+import logo from './logo-placeholder.webp';
 
 export default function LoginForm() {
   const router = useRouter();
@@ -26,7 +28,12 @@ export default function LoginForm() {
       });
       const data = await safeJson(res);
       if (!res.ok) throw new Error(data.error || 'Login gagal');
-      router.push(searchParams.get('from') || '/dashboard');
+      // Cegah open redirect: hanya izinkan jalur internal (mulai '/',
+      // bukan '//', '\\', atau skema lain).
+      const from = searchParams.get('from');
+      const target =
+        from && from.startsWith('/') && !from.startsWith('//') && !from.includes('\\') ? from : '/dashboard';
+      router.push(target);
       router.refresh();
     } catch (err) {
       setError(err.message);
@@ -37,9 +44,7 @@ export default function LoginForm() {
   return (
     <>
       <div className="text-center mb-4">
-        <span className="brand-logo mx-auto mb-3" style={{ width: 52, height: 52, display: 'flex', borderRadius: 14 }}>
-          <Icon name="shield" size={26} />
-        </span>
+        <Image src={logo} alt="Logo Eluzai Kids" width={76} height={76} className="login-logo" />
         <h4 className="mb-1" style={{ fontWeight: 700 }}>
           Eluzai Dev Console
         </h4>

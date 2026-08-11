@@ -7,6 +7,12 @@
    ============================================================ */
 
 :root {
+  /* Bootstrap memakai --bs-body-font-family untuk komponennya (btn,
+     form-control, dll.) — paksa pakai font lokal Inter agar konsisten
+     dengan seluruh dashboard. Pola sama dengan website utama. */
+  --bs-body-font-family: var(--font-inter), 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --bs-font-sans-serif: var(--font-inter), 'Segoe UI', system-ui, -apple-system, sans-serif;
+
   /* Aksen — biru baja profesional (dipakai hemat) */
   --dev-primary: #3a5fae;
   --dev-primary-dark: #2e4d8f;
@@ -168,6 +174,13 @@ a:hover {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  flex: none;
+}
+
+/* Logo gambar (components/logo-placeholder.webp) di sidebar & topbar */
+.brand-logo-img {
+  border-radius: 9px;
+  box-shadow: var(--dev-shadow);
   flex: none;
 }
 
@@ -567,6 +580,13 @@ a:hover {
 }
 
 /* ---------- Login ---------- */
+.login-logo {
+  display: block;
+  margin: 0 auto 0.75rem;
+  border-radius: 10px;
+  box-shadow: var(--dev-shadow);
+}
+
 .login-wrap {
   min-height: 100vh;
   display: flex;
