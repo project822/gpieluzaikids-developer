@@ -1,5 +1,12 @@
 import localFont from 'next/font/local';
-import 'bootstrap/dist/css/bootstrap.min.css';
+import { headers } from 'next/headers';
+// Bootstrap parsial — hanya bagian yang DIPAKAI dashboard (grid + utilities +
+// reboot). Komponen lain (btn/form/modal/nav/card/dll.) sudah punya versi
+// custom dev-* di globals.css; `.spinner-border` & `.table-responsive` juga
+// dipindah ke globals.css. Hemat ±85KB CSS (full bootstrap.min.css 232KB).
+import 'bootstrap/dist/css/bootstrap-reboot.min.css';
+import 'bootstrap/dist/css/bootstrap-grid.min.css';
+import 'bootstrap/dist/css/bootstrap-utilities.min.css';
 import './globals.css';
 
 // Font lokal dari folder fonts/ (tanpa request ke Google Fonts):
@@ -31,15 +38,21 @@ export const metadata = {
   description: 'Dashboard developer GPI Eluzai — kontrol & pemantauan website utama.',
 };
 
-// Terapkan tema sebelum render (anti flash) — skrip ini menyalin perilaku
-// ThemeToggle di website utama.
-const themeScript = `(function(){try{var t=localStorage.getItem('eluzai-dev-theme');if(t==='dark'||(!t&&window.matchMedia('(prefers-color-scheme: dark)').matches)){document.documentElement.setAttribute('data-theme','dark');}}catch(e){}})();`;
+// Terapkan tema sebelum render (anti flash) — default LIGHT; dark hanya bila
+// user memilihnya secara eksplisit (localStorage 'eluzai-dev-theme' = 'dark').
+const themeScript = `(function(){try{var t=localStorage.getItem('eluzai-dev-theme');if(t==='dark'){document.documentElement.setAttribute('data-theme','dark');}}catch(e){}})();`;
 
-export default function RootLayout({ children }) {
+export default async function RootLayout({ children }) {
+  // Nonce CSP berasal dari proxy.js (header request `x-nonce`). Wajib dipakai
+  // script tema inline — script-src sudah TIDAK berisi 'unsafe-inline'.
+  // Catatan: headers() membuat seluruh halaman dirender dinamis per-request.
+  const nonce = (await headers()).get('x-nonce');
   return (
     <html lang="id" className={`${inter.variable} ${hanken.variable}`} suppressHydrationWarning>
       <head>
-        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+        {/* Nonce wajib ada (dari proxy.js) — tanpa nonce script ter-block CSP;
+            lebih baik tidak dirender daripada memicu error konsol. */}
+        {nonce && <script nonce={nonce} dangerouslySetInnerHTML={{ __html: themeScript }} />}
       </head>
       <body>{children}</body>
     </html>

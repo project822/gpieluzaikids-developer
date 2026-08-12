@@ -35,7 +35,7 @@ export default function DashboardPage() {
     const res = await authedFetch('/api/system/maintenance');
     if (!res.ok) throw new Error('Gagal memuat status maintenance.');
     return safeJson(res);
-  }, 5000);
+  }, 10000); // 10s — di-refresh manual setelah toggle
   const maintenance = maintenanceData?.maintenance;
 
   // Status koneksi MongoDB milik dashboard ini (database eluzai-dashboard).
@@ -46,7 +46,7 @@ export default function DashboardPage() {
   const { data: dbHealth } = usePolling(async () => {
     const res = await authedFetch('/api/db/health', { cache: 'no-store' });
     return safeJson(res);
-  }, 5000);
+  }, 15000); // 15s — status koneksi DB jarang berubah
 
   const [toggling, setToggling] = useState(false);
   const [msg, setMsg] = useState(null);

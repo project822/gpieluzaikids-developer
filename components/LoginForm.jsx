@@ -44,7 +44,7 @@ export default function LoginForm() {
   return (
     <>
       <div className="text-center mb-4">
-        <Image src={logo} alt="Logo Eluzai Kids" width={76} height={76} className="login-logo" />
+        <Image src={logo} alt="Logo Eluzai Kids" width={64} height={64} className="login-logo" />
         <h4 className="mb-1" style={{ fontWeight: 700 }}>
           Eluzai Dev Console
         </h4>

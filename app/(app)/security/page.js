@@ -34,7 +34,7 @@ export default function SecurityPage() {
     const res = await authedFetch('/api/dev/status');
     if (!res.ok) throw new Error('Gagal memuat status.');
     return safeJson(res);
-  }, 3000);
+  }, 5000); // 5s — masih real-time; polling berhenti saat tab tidak aktif
 
   const [msg, setMsg] = useState(null);
   const [newBlockedIp, setNewBlockedIp] = useState('');

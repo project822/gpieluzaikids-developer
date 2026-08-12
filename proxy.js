@@ -21,6 +21,48 @@ import { getClientIp, isIpBlocked } from '@/lib/security';
 const STATE_METHODS = ['POST', 'PUT', 'PATCH', 'DELETE'];
 const MAX_BODY_BYTES = 100 * 1024; // 100kb — dashboard tidak mengunggah file besar
 
+// ---------- CSP nonce (anti-XSS) ----------
+// Nonce di-generate per-request; header `x-nonce` diteruskan ke request
+// downstream agar Next.js otomatis menempelkan nonce pada inline script-nya
+// sendiri (bootstrap/hydration/__next_f) — sehingga 'unsafe-inline' TIDAK
+// diperlukan lagi di script-src. Layout membaca nonce via headers() untuk
+// script tema anti-FOUC (app/layout.js).
+// `'unsafe-eval'` hanya untuk mode dev (webpack/Turbopack HMR).
+// style-src tetap 'unsafe-inline' (inline style React + next/font) dan
+// origin website utama (SITE_BASE_URL) diizinkan untuk preview iframe.
+const SITE_ORIGINS = [
+  'http://localhost:22889 https://localhost:22889 http://127.0.0.1:22889 https://127.0.0.1:22889',
+  process.env.SITE_BASE_URL || 'https://gpieluzaikids.vercel.app',
+].join(' ');
+
+function buildCsp(nonce) {
+  const isProd = process.env.NODE_ENV === 'production';
+  return [
+    "default-src 'self'",
+    `script-src 'self' 'nonce-${nonce}'${isProd ? '' : " 'unsafe-eval'"}`,
+    `style-src 'self' 'unsafe-inline' ${SITE_ORIGINS}`,
+    `img-src 'self' data: blob: ${SITE_ORIGINS}`,
+    `font-src 'self' data: ${SITE_ORIGINS}`,
+    `connect-src 'self'${isProd ? '' : ' ws: wss:'}`,
+    "frame-src 'self'",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    "frame-ancestors 'none'",
+  ].join('; ');
+}
+
+// Respons halaman/API dengan nonce CSP: set `x-nonce` pada request downstream
+// (dibaca Next.js & layout) + header Content-Security-Policy pada respons.
+function nextWithSecurity(request) {
+  const nonce = crypto.randomUUID();
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set('x-nonce', nonce);
+  const response = NextResponse.next({ request: { headers: requestHeaders } });
+  response.headers.set('Content-Security-Policy', buildCsp(nonce));
+  return response;
+}
+
 // Pastikan cookie CSRF selalu tersedia pada respons halaman maupun API.
 function ensureCsrfCookie(response, request) {
   if (!request.cookies.get(CSRF_COOKIE)?.value) {
@@ -86,7 +128,7 @@ export async function proxy(request) {
 
   // 1) API auth: bebas akses (login/logout/session).
   if (isApi && isAuthApi) {
-    return ensureCsrfCookie(NextResponse.next(), request);
+    return ensureCsrfCookie(nextWithSecurity(request), request);
   }
 
   // 2) API lainnya: wajib sesi.
@@ -94,6 +136,25 @@ export async function proxy(request) {
     if (!valid) {
       logSecurityEvent({ type: 'auth', ip, path: pathname, detail: 'API tanpa sesi valid' });
       return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 });
+    }
+    // Binding perangkat: token berisi klaim `dev` (ID perangkat saat login).
+    // Semua fetch pihak pertama (csrfFetch/authedFetch) SELALU mengirim
+    // X-Device-Id — jadi API call tanpa header atau dengan header berbeda
+    // dari klaim token ditolak (cookie dicuri tidak bisa dipakai ulang dari
+    // curl/tool lain). Navigasi halaman (GET, tanpa header) tidak masuk
+    // blok isApi sehingga tetap berfungsi normal.
+    const deviceId = (request.headers.get('x-device-id') || '').trim();
+    if (payload.dev && deviceId !== payload.dev) {
+      logSecurityEvent({
+        type: 'device_mismatch',
+        ip,
+        path: pathname,
+        detail: `token perangkat ${String(payload.dev).slice(0, 16)}… ≠ header ${deviceId.slice(0, 16)}…`,
+      });
+      return NextResponse.json(
+        { error: 'Sesi tidak valid untuk perangkat ini. Silakan login ulang.' },
+        { status: 401 }
+      );
     }
     // Pertahanan untuk metode state-changing.
     if (STATE_METHODS.includes(method)) {
@@ -112,12 +173,12 @@ export async function proxy(request) {
         return NextResponse.json({ error: 'Token CSRF tidak valid.' }, { status: 403 });
       }
     }
-    return ensureCsrfCookie(NextResponse.next(), request);
+    return ensureCsrfCookie(nextWithSecurity(request), request);
   }
 
   // 3) Halaman login: sudah login → arahkan ke dashboard.
   if (isLogin) {
-    return valid ? NextResponse.redirect(new URL('/dashboard', request.url)) : NextResponse.next();
+    return valid ? NextResponse.redirect(new URL('/dashboard', request.url)) : nextWithSecurity(request);
   }
 
   // 4) Halaman lain: wajib login.
@@ -128,11 +189,14 @@ export async function proxy(request) {
   }
 
   // 5) Pastikan cookie CSRF tersedia untuk sesi aktif.
-  return ensureCsrfCookie(NextResponse.next(), request);
+  return ensureCsrfCookie(nextWithSecurity(request), request);
 }
 
 export const config = {
-  // Seluruh aset & HMR dev (termasuk ws upgrade _next/hmr) tidak masuk
-  // middleware — hanya halaman & API yang diproteksi.
-  matcher: ['/((?!_next/|favicon.ico|.*\\..*).*)'],
+  // Seluruh aset statis & HMR dev (termasuk ws upgrade _next/hmr) tidak masuk
+  // middleware. Pola pertama mengecualikan path berk titik (aset statis); pola
+  // kedua memastikan SEMUA /api/* tetap diproses middleware — termasuk path
+  // berk titik (mis. /api/dev/foo.bar) yang sebelumnya lolos dari cek sesi,
+  // CSRF & blocklist (celah keamanan: proxy generik bisa dipanggil tanpa login).
+  matcher: ['/((?!_next/|favicon.ico|.*\\..*).*)', '/api/:path*'],
 };

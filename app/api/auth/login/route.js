@@ -9,14 +9,7 @@ import {
 import { checkRateLimit, registerFailure, clearRateLimit } from '@/lib/rateLimit';
 import { logSecurityEvent } from '@/lib/securityLog';
 import { siteFetch } from '@/lib/siteApi';
-
-function getIp(request) {
-  return (
-    request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
-    request.headers.get('x-real-ip') ||
-    'unknown'
-  );
-}
+import { getClientIp } from '@/lib/security';
 
 // ---------- Blocklist real-time (sumber kebenaran: website utama) ----------
 // Login dashboard ikut diblokir oleh blocklist IP & device yang dikelola
@@ -25,6 +18,13 @@ function getIp(request) {
 // HTTP kecil per interval, tidak membebani jalur login, dan perubahan blocklist
 // dari halaman Security terlihat hampir seketika.
 const BLOCK_CACHE_MS = 1500;
+
+// Batas ketat khusus endpoint login (endpoint auth dikecualikan dari cek
+// body 100kb di proxy.js — di sini kami terapkan batas sendiri agar penyerang
+// tanpa autentikasi tidak bisa membanjiri request.json() dengan body raksasa).
+const MAX_LOGIN_BODY_BYTES = 8 * 1024;
+const MAX_USERNAME_LENGTH = 64; // key rate-limit & log — cegah map key raksasa
+const MAX_DEVICE_ID_LENGTH = 128; // dimasukkan ke klaim JWT — cegah token membengkak
 
 async function getBlockData() {
   const g = globalThis;
@@ -43,13 +43,30 @@ function invalidateBlockCache() {
 }
 
 export async function POST(request) {
-  const ip = getIp(request);
+  const ip = getClientIp(request);
 
   try {
+    // Tolak cepat sebelum parsing bila header Content-Length mencurigakan
+    // (atau lebih besar dari batas). Request tanpa Content-Length (chunked)
+    // tetap melewati JSON.parse — batas field di bawah tetap membatasi dampak.
+    const contentLength = Number(request.headers.get('content-length') || 0);
+    if (contentLength > MAX_LOGIN_BODY_BYTES) {
+      logSecurityEvent({
+        type: 'body_limit',
+        ip,
+        path: '/api/auth/login',
+        detail: `Content-Length ${contentLength} > ${MAX_LOGIN_BODY_BYTES}`,
+      });
+      return NextResponse.json(
+        { error: 'Ukuran body terlalu besar.' },
+        { status: 413, headers: { 'Cache-Control': 'no-store' } }
+      );
+    }
+
     const body = await request.json();
-    const username = String(body?.username || '').trim();
+    const username = String(body?.username || '').trim().slice(0, MAX_USERNAME_LENGTH);
     const password = String(body?.password || '');
-    const deviceId = String(request.headers.get('x-device-id') || '').trim();
+    const deviceId = String(request.headers.get('x-device-id') || '').trim().slice(0, MAX_DEVICE_ID_LENGTH);
 
     // 0) Blocklist IP + perangkat (real-time) — sebelum verifikasi apa pun.
     //    Fail-open bila website utama tidak terjangkau (login tetap bisa
@@ -94,7 +111,8 @@ export async function POST(request) {
 
     // Anti brute-force (SECURITY.md #9): 5 percobaan gagal / 15 menit →
     // blokir 10 menit. Berlaku per IP, per username, dan per pasangan.
-    const rl = checkRateLimit({ ip, username });
+    // Store bersama MongoDB (lintas instance serverless) — lihat lib/rateLimit.js.
+    const rl = await checkRateLimit({ ip, username });
     if (rl.blocked) {
       logSecurityEvent({
         type: 'rate_limit',
@@ -116,7 +134,7 @@ export async function POST(request) {
     const passwordOk = safeCompare(password, creds.password);
 
     if (!usernameOk || !passwordOk) {
-      registerFailure({ ip, username });
+      await registerFailure({ ip, username });
       // reason (hanya di log server, tidak dikirim ke client): username | password
       // membantu diagnosis cepat — mis. DASHBOARD_PASSWORD di Vercel punya spasi
       // tersembunyi atau nilai env-nya tidak cocok dengan yang diketik.
@@ -133,10 +151,16 @@ export async function POST(request) {
     }
 
     // Login sukses → bersihkan hitungan gagal.
-    clearRateLimit({ ip, username });
+    await clearRateLimit({ ip, username });
     invalidateBlockCache();
 
-    const token = await issueToken({ sub: creds.username, role: 'developer' });
+    // Klaim `dev` = ID perangkat saat login → proxy.js menolak pemakaian
+    // token dari perangkat lain (bila header X-Device-Id dikirim).
+    const token = await issueToken({
+      sub: creds.username,
+      role: 'developer',
+      ...(deviceId ? { dev: deviceId } : {}),
+    });
     const res = NextResponse.json({ ok: true });
     res.cookies.set(TOKEN_COOKIE, token, tokenCookieOptions());
     return res;

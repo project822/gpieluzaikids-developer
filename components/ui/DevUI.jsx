@@ -46,6 +46,13 @@ export function timeAgo(iso) {
 }
 
 // ---------- Hook: polling real-time ----------
+// Optimasi:
+//   - Jeda saat tab tidak terlihat (document.hidden) → nol request di
+//     background; saat kembali terlihat langsung fetch segar.
+//   - In-flight guard PER-EFEK (variabel lokal, bukan ref bersama): tick
+//     interval dilewati bila request sebelumnya masih jalan, tapi refresh()
+//     (efek baru) tetap boleh fetch — tidak ada refresh yang hilang diam-diam.
+//   - `tick` di deps → refresh() memicu fetch langsung (perilaku benar).
 export function usePolling(fn, intervalMs = 6000) {
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
@@ -61,8 +68,11 @@ export function usePolling(fn, intervalMs = 6000) {
 
   useEffect(() => {
     let alive = true;
+    let inFlight = false; // milik efek ini — tidak menahan refresh efek lain
 
     async function run() {
+      if (inFlight) return; // request efek ini masih jalan → lewati tick
+      inFlight = true;
       try {
         const result = await fnRef.current();
         if (!alive) return;
@@ -72,22 +82,30 @@ export function usePolling(fn, intervalMs = 6000) {
         if (!alive) return;
         setError(err.message || 'Gagal memuat data');
       } finally {
+        inFlight = false;
         if (alive) setLoading(false);
       }
     }
 
+    // Kembali ke tab → langsung refresh (interval dijeda saat hidden).
+    const onVisibility = () => {
+      if (!document.hidden) run();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+
     run();
     const id = setInterval(() => {
-      setTick((t) => t + 1);
-      run();
+      if (!document.hidden) run();
     }, intervalMs);
+
     return () => {
       alive = false;
       clearInterval(id);
+      document.removeEventListener('visibilitychange', onVisibility);
     };
-  }, [intervalMs]);
+  }, [intervalMs, tick]);
 
-  return { data, error, loading, refresh: () => setTick((t) => t + 1), tick };
+  return { data, error, loading, refresh: () => setTick((t) => t + 1) };
 }
 
 // ---------- Card ----------

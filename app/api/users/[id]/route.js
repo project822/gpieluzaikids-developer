@@ -40,7 +40,11 @@ export async function PATCH(request, { params }) {
       patch.role = body.role;
     }
     if (body?.active !== undefined) {
-      patch.active = Boolean(body.active);
+      // Validasi ketat: jangan koersi (Boolean("false") === true — bug!).
+      if (typeof body.active !== 'boolean') {
+        return NextResponse.json({ error: '"active" harus boolean.' }, { status: 400 });
+      }
+      patch.active = body.active;
     }
 
     if (Object.keys(patch).length === 0) {

@@ -4,18 +4,13 @@ import { useEffect, useRef, useState } from 'react';
 import Icon from '@/components/Icon';
 import { Card, StatCard, Spinner, EmptyState, Modal } from '@/components/ui/DevUI';
 import { authedFetch, csrfFetch, safeJson } from '@/lib/csrfClient';
+import { CLASSES } from '@/lib/attendanceValidation';
 
 // Halaman & tombol hapus hanya bisa dijalankan setelah data absensi
 // terakumulasi 1 tahun penuh — dicek di server (GET /api/dev/attendance/archive).
 
-// Kelas Sekolah Minggu — sama dengan website utama.
-const CLASSES = [
-  { value: 'baby', label: 'Baby' },
-  { value: 'samuel', label: 'Samuel' },
-  { value: 'yosua', label: 'Yosua' },
-  { value: 'musa', label: 'Musa' },
-];
-
+// Label kelas — daftar kelas (CLASSES) bersumber dari lib bersama
+// (lib/attendanceValidation.js), sama dengan website utama.
 function classLabel(value) {
   return CLASSES.find((c) => c.value === value)?.label || value || '';
 }

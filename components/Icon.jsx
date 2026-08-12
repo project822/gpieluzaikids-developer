@@ -249,6 +249,12 @@ const PATHS = {
 };
 
 export default function Icon({ name, size = 20, className = '', style }) {
+  const path = PATHS[name];
+  if (!path && process.env.NODE_ENV !== 'production') {
+    // Typo nama ikon sebelumnya diam-diam merender ikon grid (fallback) —
+    // tampak di dev console supaya kesalahan segera terlihat.
+    console.error(`[Icon] Ikon tidak dikenal: "${name}"`);
+  }
   return (
     <svg
       width={size}
@@ -263,7 +269,7 @@ export default function Icon({ name, size = 20, className = '', style }) {
       style={style}
       aria-hidden="true"
     >
-      {PATHS[name] || PATHS.grid}
+      {path || PATHS.grid}
     </svg>
   );
 }

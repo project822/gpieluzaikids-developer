@@ -12,8 +12,8 @@ import logo from './logo-placeholder.webp';
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:22889';
 
 const NAV = [
-  { href: '/dashboard', label: 'Dashboard', icon: 'grid', exact: true },
-  { href: '/system', label: 'System', icon: 'wrench' },
+  { href: '/dashboard', label: 'Dashboard', icon: 'home', exact: true },
+  { href: '/system', label: 'System', icon: 'settings' },
   { href: '/account', label: 'Account', icon: 'users' },
   { href: '/security', label: 'Security', icon: 'shield' },
   { href: '/absensi', label: 'Absensi', icon: 'archive' },
@@ -24,22 +24,18 @@ function isActive(n, pathname) {
   return n.exact ? pathname === n.href : pathname.startsWith(n.href);
 }
 
-function PageTitle({ pathname }) {
-  const map = {
-    '/dashboard': 'Dashboard',
-    '/system': 'System',
-    '/account': 'Account',
-    '/security': 'Security',
-    '/absensi': 'Absensi',
-    '/activity': 'Aktivitas',
-  };
-  return <div className="dev-topbar-title">{map[pathname] || 'Console'}</div>;
+function PageTitle({ children }) {
+  return <div className="dev-topbar-title">{children}</div>;
 }
+
+// Judul halaman diturunkan dari NAV — satu sumber kebenaran, tidak duplikat.
+const PAGE_TITLES = Object.fromEntries(NAV.map((n) => [n.href, n.label]));
 
 export default function AppShell({ children }) {
   const pathname = usePathname();
   const router = useRouter();
   const [loggingOut, setLoggingOut] = useState(false);
+  const pageTitle = PAGE_TITLES[pathname] || 'Console';
 
   async function logout() {
     setLoggingOut(true);
@@ -90,45 +86,53 @@ export default function AppShell({ children }) {
         </div>
       </aside>
 
-      {/* Topbar mobile */}
+      {/* Topbar mobile — logo & aksi, tanpa menu (menu pindah ke tab bar bawah) */}
       <div className="d-md-none position-sticky top-0" style={{ zIndex: 1035, background: 'var(--dev-surface)', borderBottom: '1px solid var(--dev-border)' }}>
         <div className="d-flex align-items-center justify-content-between px-3 py-2">
-          <Link href="/dashboard" className="d-flex align-items-center gap-2 text-decoration-none">
-            <Image src={logo} alt="Logo Eluzai Kids" width={34} height={34} className="brand-logo-img" />
-            <span className="fw-bold" style={{ fontSize: '0.95rem' }}>Eluzai Dev</span>
-          </Link>
-          <div className="d-flex gap-2 align-items-center">
-            <ThemeToggle compact />
+          <div className="d-flex align-items-center gap-2 min-w-0">
+            <Link href="/dashboard" className="d-flex align-items-center gap-2 text-decoration-none flex-none">
+              <Image src={logo} alt="Logo Eluzai Kids" width={34} height={34} className="brand-logo-img" />
+              <span className="fw-bold" style={{ fontSize: '0.95rem' }}>Eluzai Dev</span>
+            </Link>
+            <span
+              className="dev-topbar-title d-none d-sm-block"
+              style={{ fontSize: '0.78rem', color: 'var(--dev-muted)', whiteSpace: 'nowrap' }}
+            >
+              · {pageTitle}
+            </span>
+          </div>
+          <div className="d-flex gap-2 align-items-center flex-none">
+            <ThemeToggle />
             <button onClick={logout} disabled={loggingOut} className="icon-btn" aria-label="Keluar" title="Keluar" style={{ color: 'var(--dev-red)' }}>
               <Icon name="logout" size={17} />
             </button>
           </div>
         </div>
-        <div className="d-flex gap-1 px-3 pb-2" style={{ overflowX: 'auto' }}>
-          {NAV.map((n) => {
-            const active = isActive(n, pathname);
-            return (
-              <Link
-                key={n.href}
-                href={n.href}
-                className="btn btn-sm"
-                style={
-                  active
-                    ? { background: 'var(--dev-blue)', color: '#fff', borderRadius: 9, fontWeight: 600 }
-                    : { color: 'var(--dev-muted)', borderRadius: 9 }
-                }
-              >
-                {n.label}
-              </Link>
-            );
-          })}
-        </div>
       </div>
+
+      {/* Tab bar bawah mobile — seperti aplikasi profesional: ikon saja */}
+      <nav className="dev-tabbar d-md-none" aria-label="Navigasi utama">
+        {NAV.map((n) => {
+          const active = isActive(n, pathname);
+          return (
+            <Link
+              key={n.href}
+              href={n.href}
+              className={`dev-tab ${active ? 'active' : ''}`}
+              aria-label={n.label}
+              aria-current={active ? 'page' : undefined}
+              title={n.label}
+            >
+              <Icon name={n.icon} size={22} />
+            </Link>
+          );
+        })}
+      </nav>
 
       {/* Konten */}
       <div className="dev-main">
         <header className="dev-topbar d-none d-md-flex">
-          <PageTitle pathname={pathname} />
+          <PageTitle>{pageTitle}</PageTitle>
           <div className="d-flex align-items-center gap-2">
             <a
               href={SITE_URL}
