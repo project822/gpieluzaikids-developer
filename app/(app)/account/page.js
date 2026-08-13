@@ -132,7 +132,7 @@ export default function AccountPage() {
       <div className="row g-3">
         {/* Tambah user */}
         <div className="col-lg-4">
-          <Card title="Tambah Admin" sub="User baru langsung bisa login di /admin website utama." icon="plus">
+          <Card title="Tambah Admin" icon="plus">
             <form onSubmit={addUser} className="d-flex flex-column gap-3">
               <div>
                 <label className="dev-label" htmlFor="u-username">Username</label>
@@ -141,7 +141,7 @@ export default function AccountPage() {
                   className="dev-input"
                   value={form.username}
                   onChange={(e) => setForm({ ...form, username: e.target.value })}
-                  placeholder="mis. gembala"
+                  placeholder="mis. gpieluzaikids_user"
                   required
                   minLength={3}
                   maxLength={30}
@@ -150,10 +150,11 @@ export default function AccountPage() {
               </div>
               <div>
                 <label className="dev-label" htmlFor="u-password">Password</label>
+                {/* Password ditampilkan terbuka (show) supaya mudah diteliti sebelum disimpan. */}
                 <input
                   id="u-password"
                   className="dev-input"
-                  type="password"
+                  type="text"
                   value={form.password}
                   onChange={(e) => setForm({ ...form, password: e.target.value })}
                   placeholder="minimal 6 karakter"
@@ -175,10 +176,7 @@ export default function AccountPage() {
                 )}
               </button>
             </form>
-            <div className="alert-dev alert-dev-blue mt-3 mb-0" style={{ fontSize: '0.8rem' }}>
-              <Icon name="lock" size={14} style={{ marginRight: 6 }} />
-              Password di-hash <strong>scrypt</strong> lalu disimpan langsung ke database website utama.
-            </div>
+
           </Card>
         </div>
 
@@ -186,7 +184,7 @@ export default function AccountPage() {
         <div className="col-lg-8">
           <Card
             title="Daftar Admin"
-            sub={`${users.length} akun · disimpan real time di database website utama`}
+            sub={`${users.length} akun`}
             icon="users"
             actions={
               <button className="btn-dev btn-dev-ghost btn-sm-dev" onClick={refresh} title="Segarkan">
@@ -293,16 +291,17 @@ export default function AccountPage() {
       >
         <form onSubmit={submitReset}>
           <label className="dev-label" htmlFor="reset-password">Password baru (minimal 6 karakter)</label>
+          {/* Password ditampilkan terbuka (show) supaya mudah diteliti. */}
           <input
             id="reset-password"
             className="dev-input"
-            type="password"
+            type="text"
             value={newPassword}
             onChange={(e) => setNewPassword(e.target.value)}
             autoFocus
             required
             minLength={6}
-            placeholder="••••••••"
+            placeholder="Password baru"
           />
         </form>
       </Modal>

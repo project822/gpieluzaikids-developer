@@ -134,7 +134,8 @@ export async function POST(request) {
     const passwordOk = safeCompare(password, creds.password);
 
     if (!usernameOk || !passwordOk) {
-      await registerFailure({ ip, username });
+      // deviceId ikut direkam agar perangkat pelaku bisa diblokir juga.
+      await registerFailure({ ip, username, deviceId });
       // reason (hanya di log server, tidak dikirim ke client): username | password
       // membantu diagnosis cepat — mis. DASHBOARD_PASSWORD di Vercel punya spasi
       // tersembunyi atau nilai env-nya tidak cocok dengan yang diketik.

@@ -190,6 +190,23 @@ export default function SecurityPage() {
     }
   }
 
+  // ---- Blokir perangkat yang ikut terrekam pada IP kena rate limit ----
+  // Perangkat (fingerprint/"MAC") dicatat otomatis pada setiap percobaan
+  // login gagal (real-time) — tombol ini menambahkannya ke blocklist
+  // perangkat agar akses dari perangkat itu ditolak seketika.
+  async function blockRateLimitedDevice(id) {
+    setBusy(true);
+    try {
+      await addDevices([id]);
+      flash('success', `Perangkat ${shortDevice(id)} diblokir — akses login ditolak seketika.`);
+      refreshAll();
+    } catch (err) {
+      flash('error', err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function unblockDevice(id) {
     try {
       const res = await csrfFetch(`/api/dev/system/blocked-devices?device=${encodeURIComponent(id)}`, { method: 'DELETE' });
@@ -310,6 +327,7 @@ export default function SecurityPage() {
                       <th>IP Address</th>
                       <th>Percobaan</th>
                       <th>Dimensi</th>
+                      <th>Perangkat (MAC)</th>
                       <th>Sisa Blokir</th>
                       <th style={{ textAlign: 'right' }}>Aksi</th>
                     </tr>
@@ -321,6 +339,29 @@ export default function SecurityPage() {
                         <td>{r.count}</td>
                         <td>
                           <span className="pill pill-gray">{(r.dimensions || []).join(' + ') || '-'}</span>
+                        </td>
+                        <td>
+                          {(r.devices || []).length === 0 ? (
+                            <span className="text-muted-dev" style={{ fontSize: '0.75rem' }}>—</span>
+                          ) : (
+                            <div className="d-flex flex-column gap-1 align-items-start">
+                              {(r.devices || []).map((id) => (
+                                <span key={id} className="d-inline-flex align-items-center gap-1">
+                                  <span className="mono" title={id}>{shortDevice(id)}</span>
+                                  <button
+                                    className="action-btn"
+                                    style={{ padding: '1px 5px' }}
+                                    title="Blokir perangkat ini (tambah ke blocklist perangkat)"
+                                    aria-label={`Blokir perangkat ${id}`}
+                                    onClick={() => blockRateLimitedDevice(id)}
+                                    disabled={busy}
+                                  >
+                                    <Icon name="ban" size={12} />
+                                  </button>
+                                </span>
+                              ))}
+                            </div>
+                          )}
                         </td>
                         <td><span className="pill pill-red">{Math.ceil(r.retryAfter / 60)} mnt</span></td>
                         <td style={{ textAlign: 'right' }}>

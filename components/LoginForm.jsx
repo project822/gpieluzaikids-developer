@@ -90,14 +90,31 @@ export default function LoginForm() {
               placeholder="••••••••"
               style={{ paddingRight: 42 }}
             />
+            {/* Tombol transparan tanpa latar/bingkai — ikon mata beraksen biru
+                (sama dengan warna tombol Masuk). Kunci saat tersembunyi, mata
+                saat sedang menampilkan password. */}
             <button
               type="button"
-              className="action-btn position-absolute"
-              style={{ top: 4, right: 4 }}
+              className="position-absolute"
+              style={{
+                top: 3,
+                right: 6,
+                width: 30,
+                height: 30,
+                padding: 0,
+                border: 'none',
+                background: 'transparent',
+                color: 'var(--dev-primary)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+              }}
               onClick={() => setShowPassword((v) => !v)}
               aria-label={showPassword ? 'Sembunyikan password' : 'Tampilkan password'}
+              title={showPassword ? 'Sembunyikan password' : 'Tampilkan password'}
             >
-              <Icon name={showPassword ? 'eye' : 'lock'} size={15} />
+              <Icon name={showPassword ? 'eye' : 'lock'} size={17} />
             </button>
           </div>
         </div>
