@@ -34,7 +34,7 @@ const hanken = localFont({
 });
 
 export const metadata = {
-  title: 'Eluzai Dev Console',
+  title: 'Eluzai Kids Developer',
   description: 'Dashboard developer GPI Eluzai — kontrol & pemantauan website utama.',
 };
 

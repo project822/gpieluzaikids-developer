@@ -51,9 +51,9 @@ export default function AppShell({ children }) {
     <div className="dev-shell">
       {/* Sidebar desktop */}
       <aside className="dev-sidebar p-3">
-        <Link href="/dashboard" className="d-flex align-items-center gap-3 text-decoration-none px-2 pt-2 pb-4">
+        <Link href="/dashboard" className="d-flex align-items-center gap-2 text-decoration-none px-2 pt-2 pb-4">
           <Image src={logo} alt="Logo Eluzai Kids" width={34} height={34} className="brand-logo-img" />
-          <span className="brand-name">Eluzai Dev</span>
+          <span className="brand-name" style={{ fontSize: '0.76rem', lineHeight: 1.2 }}>Eluzai Kids Developer</span>
         </Link>
 
         <nav className="dev-nav">
@@ -92,7 +92,18 @@ export default function AppShell({ children }) {
           <div className="d-flex align-items-center gap-2 min-w-0">
             <Link href="/dashboard" className="d-flex align-items-center gap-2 text-decoration-none flex-none">
               <Image src={logo} alt="Logo Eluzai Kids" width={34} height={34} className="brand-logo-img" />
-              <span className="fw-bold" style={{ fontSize: '0.95rem' }}>Eluzai Dev</span>
+              <span
+                className="fw-bold"
+                style={{
+                  fontSize: '0.85rem',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  maxWidth: 150,
+                }}
+              >
+                Eluzai Kids Developer
+              </span>
             </Link>
             <span
               className="dev-topbar-title d-none d-sm-block"

@@ -297,7 +297,6 @@ export default function SecurityPage() {
         <div className="col-lg-7">
           <Card
             title="IP Terblokir (Rate Limit)"
-            sub="Otomatis diblokir 10 menit setelah 5 percobaan login gagal — real-time."
             icon="activity"
             actions={
               <>
@@ -387,7 +386,6 @@ export default function SecurityPage() {
         <div className="col-lg-5">
           <Card
             title="Blocklist IP Manual"
-            sub="Berlaku seketika untuk seluruh situs & login admin tanpa restart."
             icon="ban"
           >
             <div
@@ -396,9 +394,8 @@ export default function SecurityPage() {
             >
               <Icon name="alert" size={14} style={{ color: 'var(--dev-red)', flex: 'none', marginTop: 2 }} />
               <span>
-                IP yang diblokir tidak bisa login admin <strong>website utama maupun dashboard ini</strong>. Jangan
-                blokir IP/perangkat Anda sendiri — pemulihan hanya lewat perangkat lain atau file{' '}
-                <span className="mono">data/dev-state.json</span>.
+                Jangan blokir IP/perangkat Anda sendiri — pemulihan hanya lewat perangkat
+                lain atau file <span className="mono">data/dev-state.json</span>.
               </span>
             </div>
             <form onSubmit={addBlocked} className="d-flex gap-2 mb-3">
@@ -463,7 +460,6 @@ export default function SecurityPage() {
       {/* Blocklist device (MAC / fingerprint perangkat) */}
       <Card
         title="Blocklist Perangkat (MAC / Device)"
-        sub="Server tidak bisa melihat MAC fisik lewat HTTPS — setiap browser memakai ID perangkat stabil (fingerprint) yang dikirim otomatis pada setiap request admin/login. Perangkat yang diblokir tidak bisa login sama sekali."
         icon="lock"
         actions={
           <button className="btn-dev btn-dev-ghost btn-sm-dev" onClick={refreshStatus} title="Segarkan">

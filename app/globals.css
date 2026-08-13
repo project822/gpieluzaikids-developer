@@ -1,9 +1,10 @@
 /* ============================================================
-   Eluzai Dev Console — Design System
+   Eluzai Kids Developer — Design System
    Dashboard developer GPI Eluzai (mengelola D:\church, port 22889).
    Bootstrap 5.3 + font lokal: Inter (body) & Hanken Grotesk (judul).
-   Palet: netral slate + aksen biru baja. Gaya: datar, sederhana,
-   profesional. Mendukung light & dark mode. Responsif.
+   Palet: netral slate + aksen biru identik tombol Masuk admin
+   (#1d4ed8). Gaya: datar, sederhana, profesional. Mendukung light
+   & dark mode. Responsif.
    ============================================================ */
 
 :root {
@@ -13,10 +14,10 @@
   --bs-body-font-family: var(--font-inter), 'Segoe UI', system-ui, -apple-system, sans-serif;
   --bs-font-sans-serif: var(--font-inter), 'Segoe UI', system-ui, -apple-system, sans-serif;
 
-  /* Aksen — biru baja profesional (dipakai hemat) */
-  --dev-primary: #3a5fae;
-  --dev-primary-dark: #2e4d8f;
-  --dev-primary-soft: rgba(58, 95, 174, 0.09);
+  /* Aksen — biru identik tombol "Masuk" login admin (#1d4ed8) */
+  --dev-primary: #1d4ed8;
+  --dev-primary-dark: #1e40af;
+  --dev-primary-soft: rgba(29, 78, 216, 0.1);
   /* Alias lama → primary */
   --dev-blue: var(--dev-primary);
   --dev-blue-dark: var(--dev-primary-dark);
@@ -682,7 +683,7 @@ a:hover {
   width: 64px;
   height: 64px;
   border-radius: 14px;
-  box-shadow: 0 4px 12px rgba(58, 95, 174, 0.22);
+  box-shadow: 0 4px 12px rgba(29, 78, 216, 0.25);
 }
 
 .login-wrap {
@@ -717,6 +718,39 @@ a:hover {
   padding: 0.68rem;
   font-size: 0.9rem;
   border-radius: 10px;
+}
+
+/* Tombol Masuk: latar terang + aksen biru tombol Masuk admin (#1d4ed8)
+   agar ikon pintu terlihat biru persis seperti warna tombol admin. */
+.login-card .btn-dev-masuk {
+  background: var(--dev-surface);
+  border: 1px solid var(--dev-primary);
+  color: var(--dev-primary);
+}
+
+.login-card .btn-dev-masuk:hover {
+  background: var(--dev-primary-soft);
+  color: var(--dev-primary-dark);
+  border-color: var(--dev-primary-dark);
+}
+
+.login-card .btn-dev-masuk:disabled,
+.login-card .btn-dev-masuk[disabled] {
+  background: var(--dev-surface);
+  border-color: var(--dev-border-strong);
+  color: var(--dev-muted);
+  opacity: 1;
+}
+
+/* Ikon pintu Masuk: biru persis tombol "Masuk" admin (#1d4ed8) di
+   light-mode; di dark-mode memakai var(--dev-primary) agar tetap
+   terbaca di latar gelap. */
+.login-card .masuk-icon {
+  color: #1d4ed8;
+}
+
+[data-theme='dark'] .login-card .masuk-icon {
+  color: var(--dev-primary);
 }
 
 .login-card .dev-label {

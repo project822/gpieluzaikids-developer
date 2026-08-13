@@ -2,7 +2,7 @@ import { Suspense } from 'react';
 import LoginForm from '@/components/LoginForm';
 import ThemeToggle from '@/components/ThemeToggle';
 
-export const metadata = { title: 'Masuk — Eluzai Dev Console' };
+export const metadata = { title: 'Masuk — Eluzai Kids Developer' };
 
 export default function LoginPage() {
   return (
@@ -21,7 +21,7 @@ export default function LoginPage() {
         >
           <LoginForm />
         </Suspense>
-        <div className="login-footer-note">© GPI Eluzai · Dev Console</div>
+        <div className="login-footer-note">© Eluzai Kids . Developer</div>
       </div>
     </div>
   );

@@ -46,7 +46,7 @@ export default function LoginForm() {
       <div className="text-center mb-4">
         <Image src={logo} alt="Logo Eluzai Kids" width={64} height={64} className="login-logo" />
         <h4 className="mb-1" style={{ fontWeight: 700 }}>
-          Eluzai Dev Console
+          Eluzai Kids Developer
         </h4>
         <p className="text-muted-dev mb-0" style={{ fontSize: '0.83rem' }}>
           Masuk untuk mengelola website utama
@@ -91,14 +91,15 @@ export default function LoginForm() {
               style={{ paddingRight: 42 }}
             />
             {/* Tombol transparan tanpa latar/bingkai — ikon mata beraksen biru
-                (sama dengan warna tombol Masuk). Kunci saat tersembunyi, mata
-                saat sedang menampilkan password. */}
+                (sama dengan warna tombol Masuk). Pola identik dengan halaman
+                admin: mata biasa saat tersembunyi, mata tercoret saat sedang
+                menampilkan password. Posisi benar-benar pas di tengah input. */}
             <button
               type="button"
               className="position-absolute"
               style={{
-                top: 3,
-                right: 6,
+                top: '50%',
+                right: 7,
                 width: 30,
                 height: 30,
                 padding: 0,
@@ -108,17 +109,18 @@ export default function LoginForm() {
                 display: 'inline-flex',
                 alignItems: 'center',
                 justifyContent: 'center',
+                transform: 'translateY(-50%)',
                 cursor: 'pointer',
               }}
               onClick={() => setShowPassword((v) => !v)}
               aria-label={showPassword ? 'Sembunyikan password' : 'Tampilkan password'}
               title={showPassword ? 'Sembunyikan password' : 'Tampilkan password'}
             >
-              <Icon name={showPassword ? 'eye' : 'lock'} size={17} />
+              <Icon name={showPassword ? 'eyeOff' : 'eye'} size={17} />
             </button>
           </div>
         </div>
-        <button type="submit" className="btn-dev btn-dev-primary w-100" disabled={loading}>
+        <button type="submit" className="btn-dev btn-dev-masuk w-100" disabled={loading}>
           {loading ? (
             <>
               <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true" />
@@ -126,7 +128,11 @@ export default function LoginForm() {
             </>
           ) : (
             <>
-              <Icon name="logout" size={16} style={{ transform: 'rotate(180deg)' }} />
+              {/* Ikon pintu masuk — arah panah berlawanan dari semula (ke
+                  kanan/ke dalam pintu) & warna biru identik tombol Masuk
+                  admin (#1d4ed8); di dark-mode pakai var primary agar tetap
+                  terbaca (lihat .masuk-icon di globals.css). */}
+              <Icon name="logout" size={16} className="masuk-icon" />
               Masuk
             </>
           )}
