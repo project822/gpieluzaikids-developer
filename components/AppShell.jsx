@@ -17,6 +17,7 @@ const NAV = [
   { href: '/account', label: 'Account', icon: 'users' },
   { href: '/security', label: 'Security', icon: 'shield' },
   { href: '/absensi', label: 'Absensi', icon: 'archive' },
+  { href: '/registration', label: 'Registration', icon: 'users' },
   { href: '/activity', label: 'Aktivitas', icon: 'activity' },
 ];
 
