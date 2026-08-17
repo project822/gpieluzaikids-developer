@@ -720,25 +720,24 @@ a:hover {
   border-radius: 10px;
 }
 
-/* Tombol Masuk: latar terang + aksen biru tombol Masuk admin (#1d4ed8)
-   agar ikon pintu terlihat biru persis seperti warna tombol admin. */
+/* Tombol Masuk: latar biru penuh + teks putih, identik tombol Masuk admin */
 .login-card .btn-dev-masuk {
-  background: var(--dev-surface);
+  background: var(--dev-primary);
   border: 1px solid var(--dev-primary);
-  color: var(--dev-primary);
+  color: #fff;
 }
 
 .login-card .btn-dev-masuk:hover {
-  background: var(--dev-primary-soft);
-  color: var(--dev-primary-dark);
+  background: var(--dev-primary-dark);
   border-color: var(--dev-primary-dark);
+  color: #fff;
 }
 
 .login-card .btn-dev-masuk:disabled,
 .login-card .btn-dev-masuk[disabled] {
-  background: var(--dev-surface);
-  border-color: var(--dev-border-strong);
-  color: var(--dev-muted);
+  background: var(--dev-muted);
+  border-color: var(--dev-muted);
+  color: #fff;
   opacity: 1;
 }
 
