@@ -59,7 +59,7 @@ export default function AbsensiPage() {
 
   // Export per bulan
   const [selectedMonth, setSelectedMonth] = useState('all');
-  const [exporting, setExporting] = useState(''); // '' | 'excel' | 'pdf'
+  const [exporting, setExporting] = useState(''); // '' | 'excel' | 'pdf' | 'graphics'
 
   // Detail per bulan (klik kartu bulan)
   const [detailMonth, setDetailMonth] = useState(null); // 'YYYY-MM' | null
@@ -287,12 +287,100 @@ export default function AbsensiPage() {
     setExporting(kind);
     try {
       if (kind === 'excel') await exportExcel();
-      else await exportPdf();
+      else if (kind === 'pdf') await exportPdf();
+      else if (kind === 'graphics') await exportGraphics();
     } catch (e) {
-      flash('error', `Gagal membuat ${kind === 'excel' ? 'Excel' : 'PDF'}: ${e.message}`);
+      flash('error', `Gagal membuat file: ${e.message}`);
     } finally {
       setExporting('');
     }
+  }
+
+  // Judul grafik — format "Grafik Kehadiran #bulan #tahun" atau "Grafik Kehadiran #tahun"
+  const graphicsTitle = () => {
+    if (selectedMonth === 'all') {
+      const year = data.months[0]?.key?.slice(0, 4) || String(new Date().getFullYear());
+      return `Grafik Kehadiran ${year}`;
+    }
+    return `Grafik Kehadiran ${monthLabel(selectedMonth)}`;
+  };
+
+  // Export Excel dengan grafik bar chart (chart dalam worksheet)
+  async function exportGraphics() {
+    const list =
+      selectedMonth === 'all'
+        ? data.months
+        : data.months.filter((m) => m.key === selectedMonth);
+    const hasData = list.some((m) => m.totalEntries > 0);
+    if (!hasData) {
+      flash('error', 'Tidak ada data untuk diekspor sebagai grafik.');
+      return;
+    }
+    const ExcelJS = (await import('exceljs')).default;
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('Grafik Kehadiran');
+
+    const title = graphicsTitle();
+    const titleRow = ws.addRow([title]);
+    ws.mergeCells(titleRow.number, 1, titleRow.number, 4);
+    titleRow.getCell(1).font = { bold: true, size: 14, color: { argb: 'FF0D6EFD' } };
+    titleRow.getCell(1).alignment = { horizontal: 'center' };
+    ws.addRow([]);
+
+    const headerRow = ws.addRow(['Bulan', 'Hadir', 'Total Catatan', 'Kehadiran (%)']);
+    headerRow.eachCell((cell) => {
+      cell.font = { bold: true };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0D6EFD' } };
+      cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+      cell.alignment = { horizontal: 'center' };
+    });
+    ws.getColumn(1).width = 24;
+    ws.getColumn(2).width = 10;
+    ws.getColumn(3).width = 14;
+    ws.getColumn(4).width = 16;
+
+    const dataRows = list.filter((m) => m.totalEntries > 0);
+    const firstDataRow = 4;
+    dataRows.forEach((m) => {
+      const pct = m.totalEntries ? Math.round((m.hadir / m.totalEntries) * 100) : 0;
+      ws.addRow([monthLabel(m.key), m.hadir, m.totalEntries, pct]);
+    });
+
+    if (dataRows.length > 0) {
+      const lastDataRow = firstDataRow + dataRows.length - 1;
+      ws.addChart(
+        {
+          type: 'bar',
+          title: { text: title },
+          legend: { position: 'bottom' },
+          series: [
+            {
+              title: { text: 'Hadir' },
+              cat: { f: `'Grafik Kehadiran'!A${firstDataRow}:A${lastDataRow}` },
+              val: { f: `'Grafik Kehadiran'!B${firstDataRow}:B${lastDataRow}` },
+            },
+            {
+              title: { text: 'Total Catatan' },
+              cat: { f: `'Grafik Kehadiran'!A${firstDataRow}:A${lastDataRow}` },
+              val: { f: `'Grafik Kehadiran'!C${firstDataRow}:C${lastDataRow}` },
+            },
+          ],
+          plotArea: { border: { color: 'CCCCCC' } },
+        },
+        { tl: { col: 0, row: firstDataRow + dataRows.length + 2 }, cx: 20, cy: 12 }
+      );
+    }
+
+    const buf = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buf], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${title}.xlsx`;
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
   const detailSessions = detail || [];
@@ -409,6 +497,20 @@ export default function AbsensiPage() {
                       <Icon name="download" size={14} />
                     )}
                     PDF
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-dev btn-dev-outline btn-sm-dev"
+                    onClick={() => runExport('graphics')}
+                    disabled={Boolean(exporting) || data.totalSessions === 0}
+                    title={data.totalSessions === 0 ? 'Belum ada data untuk diekspor' : 'Unduh grafik kehadiran'}
+                  >
+                    {exporting === 'graphics' ? (
+                      <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true" />
+                    ) : (
+                      <Icon name="activity" size={14} />
+                    )}
+                    Grafik
                   </button>
                 </div>
 

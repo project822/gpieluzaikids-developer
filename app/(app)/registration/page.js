@@ -53,7 +53,6 @@ export default function RegistrationPage() {
   const [exporting, setExporting] = useState('');
 
   // Form editor state
-  const [formTitle, setFormTitle] = useState('');
   const [customFields, setCustomFields] = useState([]);
   const [savingForm, setSavingForm] = useState(false);
   const [formEditorOpen, setFormEditorOpen] = useState(false);
@@ -115,10 +114,11 @@ export default function RegistrationPage() {
   function openFormEditor() {
     const ev = events.find((e) => e.id === selectedEvent);
     if (!ev) return;
-    setFormTitle(ev.formTitle || '');
     setCustomFields(Array.isArray(ev.customFormFields) ? ev.customFields ?? ev.customFormFields.map((f) => ({ ...f })) : []);
     setFormEditorOpen(true);
   }
+
+  const displayFormTitle = 'Form Pendaftaran';
 
   function addField() {
     setCustomFields((prev) => [...prev, emptyField()]);
@@ -150,10 +150,12 @@ export default function RegistrationPage() {
       if (!ev) throw new Error('Event tidak ditemukan.');
       // Filter fields kosong
       const cleaned = customFields.filter((f) => f.label.trim());
+      // Judul form otomatis: "Form Pendaftaran" bold + nama event (tidak perlu diedit)
+      const autoTitle = `Form Pendaftaran`;
       const res = await authedFetch(`/api/dev/events/${selectedEvent}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ formTitle: formTitle.trim(), customFormFields: cleaned }),
+        body: JSON.stringify({ formTitle: autoTitle, customFormFields: cleaned }),
       });
       const data = await safeJson(res);
       if (!res.ok) throw new Error(data.error || 'Gagal menyimpan.');
@@ -190,7 +192,61 @@ export default function RegistrationPage() {
       const customCols = evCustomFields.map((f) => ({ header: f.label, key: f.label, width: 24 }));
       const allCols = [...baseCols, ...customCols];
 
-      if (type === 'excel') {
+      if (type === 'graphics') {
+        const graphicsTitle = `Grafik Pendaftaran ${eventName}`;
+        const wb = new ExcelJS.Workbook();
+        const ws = wb.addWorksheet('Grafik Pendaftaran');
+        const gTitleRow = ws.addRow([graphicsTitle]);
+        ws.mergeCells(gTitleRow.number, 1, gTitleRow.number, 3);
+        gTitleRow.getCell(1).font = { bold: true, size: 14, color: { argb: 'FF0D6EFD' } };
+        gTitleRow.getCell(1).alignment = { horizontal: 'center' };
+        ws.addRow([]);
+        ws.addRow(['Tanggal', 'Jumlah Pendaftar', 'Kumulatif']);
+        ws.getColumn(1).width = 24;
+        ws.getColumn(2).width = 18;
+        ws.getColumn(3).width = 14;
+        const dateCounts = {};
+        registrations.forEach((r) => {
+          const d = formatDateOnly(r.createdAt);
+          dateCounts[d] = (dateCounts[d] || 0) + 1;
+        });
+        const entries = Object.entries(dateCounts);
+        let cumulative = 0;
+        const firstDataRow = 4;
+        entries.forEach(([date, count]) => {
+          cumulative += count;
+          ws.addRow([date, count, cumulative]);
+        });
+        if (entries.length > 0) {
+          const lastRow = firstDataRow + entries.length - 1;
+          ws.addChart(
+            {
+              type: 'bar',
+              title: { text: graphicsTitle },
+              legend: { position: 'bottom' },
+              series: [
+                {
+                  title: { text: 'Pendaftar per Tanggal' },
+                  cat: { f: `'Grafik Pendaftaran'!A${firstDataRow}:A${lastRow}` },
+                  val: { f: `'Grafik Pendaftaran'!B${firstDataRow}:B${lastRow}` },
+                },
+              ],
+              plotArea: { border: { color: 'CCCCCC' } },
+            },
+            { tl: { col: 0, row: lastRow + 2 }, cx: 20, cy: 12 }
+          );
+        }
+        const buf = await wb.xlsx.writeBuffer();
+        const blob = new Blob([buf], {
+          type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${graphicsTitle}.xlsx`;
+        a.click();
+        URL.revokeObjectURL(url);
+      } else if (type === 'excel') {
         const wb = new ExcelJS.Workbook();
         const ws = wb.addWorksheet('Rekap Pendaftaran');
         ws.columns = allCols;
@@ -261,7 +317,7 @@ export default function RegistrationPage() {
         doc.save(`${title}.pdf`);
       }
     } catch (e) {
-      flash('error', `Gagal membuat ${type === 'excel' ? 'Excel' : 'PDF'}: ${e.message}`);
+      flash('error', `Gagal membuat file: ${e.message}`);
     } finally {
       setExporting('');
     }
@@ -379,6 +435,20 @@ export default function RegistrationPage() {
                     )}
                     PDF
                   </button>
+                  <button
+                    type="button"
+                    className="btn-dev btn-dev-outline btn-sm-dev"
+                    onClick={() => handleExport('graphics')}
+                    disabled={Boolean(exporting) || registrations.length === 0}
+                    title={registrations.length === 0 ? 'Belum ada data' : 'Unduh grafik pendaftaran'}
+                  >
+                    {exporting === 'graphics' ? (
+                      <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true" />
+                    ) : (
+                      <Icon name="activity" size={14} />
+                    )}
+                    Grafik
+                  </button>
                 </>
               )}
             </div>
@@ -455,7 +525,7 @@ export default function RegistrationPage() {
       {/* ---- Modal Form Editor ---- */}
       {formEditorOpen && (
         <div className="modal-backdrop-eluzai" onMouseDown={(e) => e.target === e.currentTarget && setFormEditorOpen(false)}>
-          <div className="modal-card-eluzai" style={{ maxWidth: 640 }}>
+          <div className="modal-card-eluzai" style={{ maxWidth: 900 }}>
             <div className="d-flex justify-content-between align-items-center p-4 pb-0">
               <h5 className="mb-0">Edit Form Pendaftaran</h5>
               <button className="icon-btn" onClick={() => setFormEditorOpen(false)} aria-label="Tutup">
@@ -464,19 +534,17 @@ export default function RegistrationPage() {
             </div>
             <form onSubmit={saveFormConfig}>
               <div className="p-4 d-flex flex-column gap-3">
-                {/* Judul Form */}
+                {/* Judul Form — tidak bisa diedit, format otomatis */}
                 <div>
                   <label className="form-label fw-semibold text-sm">Judul Form</label>
-                  <input
-                    type="text"
+                  <div
                     className="form-control"
-                    value={formTitle}
-                    onChange={(e) => setFormTitle(e.target.value)}
-                    placeholder={`Form Pendaftaran ${selectedEventObj?.title || ''}`}
-                    maxLength={100}
-                  />
+                    style={{ background: 'var(--dev-bg)', cursor: 'default', fontWeight: 'bold', fontSize: '1.05rem' }}
+                  >
+                    {displayFormTitle}
+                  </div>
                   <div className="text-sm text-secondary mt-1">
-                    Kosongkan untuk judul default: &quot;Form Pendaftaran&quot;
+                    {selectedEventObj?.title ? `Judul otomatis: "${displayFormTitle}"` : 'Judul mengikuti nama event'}
                   </div>
                 </div>
 
@@ -572,6 +640,77 @@ export default function RegistrationPage() {
                       ))}
                     </div>
                   )}
+                </div>
+
+                {/* Preview Halaman Form */}
+                <div>
+                  <label className="form-label fw-semibold text-sm mb-2">Preview Form Pendaftaran</label>
+                  <div
+                    style={{
+                      background: 'var(--dev-surface)',
+                      border: '1px solid var(--dev-border)',
+                      borderRadius: 8,
+                      padding: '16px 20px',
+                      fontSize: '0.82rem',
+                    }}
+                  >
+                    <div style={{ fontWeight: 'bold', fontSize: '1.1rem', marginBottom: 4 }}>{displayFormTitle}</div>
+                    <div className="text-muted-dev" style={{ fontSize: '0.76rem', marginBottom: 12 }}>
+                      {selectedEventObj?.title || 'Nama Event'}
+                    </div>
+
+                    <div className="d-flex flex-column gap-2">
+                      <div>
+                        <label className="fw-semibold text-sm">Nama Lengkap <span className="text-danger">*</span></label>
+                        <div className="form-control form-control-sm" style={{ background: 'var(--dev-bg)', cursor: 'default' }}>Masukkan nama lengkap</div>
+                      </div>
+                      <div>
+                        <label className="fw-semibold text-sm">Alamat Email <span className="text-danger">*</span></label>
+                        <div className="form-control form-control-sm" style={{ background: 'var(--dev-bg)', cursor: 'default' }}>contoh: nama@email.com</div>
+                      </div>
+                      <div>
+                        <label className="fw-semibold text-sm">Nomor WhatsApp Aktif <span className="text-danger">*</span></label>
+                        <div className="form-control form-control-sm" style={{ background: 'var(--dev-bg)', cursor: 'default' }}>contoh: 081234567890</div>
+                      </div>
+
+                      {customFields.filter((f) => f.label.trim()).map((field, i) => (
+                        <div key={i}>
+                          {field.type === 'checkbox' ? (
+                            <div className="form-check form-switch">
+                              <input className="form-check-input" type="checkbox" disabled id={`preview-cf-${i}`} />
+                              <label className="form-check-label fw-semibold text-sm" htmlFor={`preview-cf-${i}`}>
+                                {field.label}{field.required && <span className="text-danger"> *</span>}
+                              </label>
+                            </div>
+                          ) : field.type === 'select' ? (
+                            <>
+                              <label className="fw-semibold text-sm">{field.label}{field.required && <span className="text-danger"> *</span>}</label>
+                              <select className="form-select form-select-sm" disabled style={{ background: 'var(--dev-bg)' }}>
+                                <option>{field.placeholder || '-- Pilih --'}</option>
+                                {(field.options || []).map((o) => <option key={o}>{o}</option>)}
+                              </select>
+                            </>
+                          ) : field.type === 'textarea' ? (
+                            <>
+                              <label className="fw-semibold text-sm">{field.label}{field.required && <span className="text-danger"> *</span>}</label>
+                              <div className="form-control form-control-sm" style={{ background: 'var(--dev-bg)', cursor: 'default', minHeight: 48 }}>{field.placeholder || ''}</div>
+                            </>
+                          ) : (
+                            <>
+                              <label className="fw-semibold text-sm">{field.label}{field.required && <span className="text-danger"> *</span>}</label>
+                              <div className="form-control form-control-sm" style={{ background: 'var(--dev-bg)', cursor: 'default' }}>{field.placeholder || ''}</div>
+                            </>
+                          )}
+                        </div>
+                      ))}
+
+                      <div className="mt-2">
+                        <div className="btn-dev btn-dev-masuk w-100 text-center" style={{ opacity: 0.6 }}>
+                          Kirim Pendaftaran
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
               <div className="d-flex justify-content-end gap-2 p-4 pt-0">
