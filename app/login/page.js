@@ -21,7 +21,7 @@ export default function LoginPage() {
         >
           <LoginForm />
         </Suspense>
-        <div className="login-footer-note">© Eluzai Kids . Developer</div>
+        <div className="login-footer-note">© Eluzai Kids ・ Developer</div>
       </div>
     </div>
   );

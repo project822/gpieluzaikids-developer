@@ -12,19 +12,31 @@ function formatDate(dateStr) {
   return d.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
 }
 
-function formatDateTime(iso) {
+function formatDateOnly(iso) {
   if (!iso) return '–';
   try {
     return new Date(iso).toLocaleDateString('id-ID', {
       day: 'numeric',
       month: 'long',
       year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
     });
   } catch {
     return '–';
   }
+}
+
+const FIELD_TYPES = [
+  { value: 'text', label: 'Teks' },
+  { value: 'email', label: 'Email' },
+  { value: 'tel', label: 'Telepon' },
+  { value: 'number', label: 'Angka' },
+  { value: 'select', label: 'Pilihan (Dropdown)' },
+  { value: 'checkbox', label: 'Centang (Toggle)' },
+  { value: 'textarea', label: 'Teks Panjang' },
+];
+
+function emptyField() {
+  return { label: '', type: 'text', required: false, options: [], placeholder: '' };
 }
 
 export default function RegistrationPage() {
@@ -39,6 +51,12 @@ export default function RegistrationPage() {
 
   // Export state
   const [exporting, setExporting] = useState('');
+
+  // Form editor state
+  const [formTitle, setFormTitle] = useState('');
+  const [customFields, setCustomFields] = useState([]);
+  const [savingForm, setSavingForm] = useState(false);
+  const [formEditorOpen, setFormEditorOpen] = useState(false);
 
   function flash(type, text) {
     setMsg({ type, text });
@@ -93,6 +111,62 @@ export default function RegistrationPage() {
     return () => { regReq.current += 1; };
   }, [selectedEvent]);
 
+  // Open form editor for selected event
+  function openFormEditor() {
+    const ev = events.find((e) => e.id === selectedEvent);
+    if (!ev) return;
+    setFormTitle(ev.formTitle || '');
+    setCustomFields(Array.isArray(ev.customFormFields) ? ev.customFields ?? ev.customFormFields.map((f) => ({ ...f })) : []);
+    setFormEditorOpen(true);
+  }
+
+  function addField() {
+    setCustomFields((prev) => [...prev, emptyField()]);
+  }
+
+  function removeField(idx) {
+    setCustomFields((prev) => prev.filter((_, i) => i !== idx));
+  }
+
+  function updateField(idx, key, value) {
+    setCustomFields((prev) => prev.map((f, i) => (i === idx ? { ...f, [key]: value } : f)));
+  }
+
+  function moveField(idx, dir) {
+    setCustomFields((prev) => {
+      const arr = [...prev];
+      const newIdx = idx + dir;
+      if (newIdx < 0 || newIdx >= arr.length) return arr;
+      [arr[idx], arr[newIdx]] = [arr[newIdx], arr[idx]];
+      return arr;
+    });
+  }
+
+  async function saveFormConfig(e) {
+    e.preventDefault();
+    setSavingForm(true);
+    try {
+      const ev = events.find((ev) => ev.id === selectedEvent);
+      if (!ev) throw new Error('Event tidak ditemukan.');
+      // Filter fields kosong
+      const cleaned = customFields.filter((f) => f.label.trim());
+      const res = await authedFetch(`/api/dev/events/${selectedEvent}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ formTitle: formTitle.trim(), customFormFields: cleaned }),
+      });
+      const data = await safeJson(res);
+      if (!res.ok) throw new Error(data.error || 'Gagal menyimpan.');
+      setFormEditorOpen(false);
+      flash('success', 'Konfigurasi form berhasil disimpan.');
+      setReloadKey((k) => k + 1);
+    } catch (e) {
+      flash('error', e.message);
+    } finally {
+      setSavingForm(false);
+    }
+  }
+
   async function handleExport(type) {
     if (!selectedEvent) return;
     setExporting(type);
@@ -104,31 +178,39 @@ export default function RegistrationPage() {
       const selectedEventObj = events.find((e) => e.id === selectedEvent);
       const eventName = selectedEventObj?.title || 'Event';
       const title = `Rekap Pendaftaran ${eventName}`;
+      const evCustomFields = Array.isArray(selectedEventObj?.customFormFields) ? selectedEventObj.customFormFields : [];
+
+      const baseCols = [
+        { header: 'No', key: 'No', width: 6 },
+        { header: 'Nama Lengkap', key: 'Nama Lengkap', width: 30 },
+        { header: 'Email', key: 'Email', width: 30 },
+        { header: 'No. WhatsApp', key: 'No. WhatsApp', width: 18 },
+        { header: 'Tanggal Daftar', key: 'Tanggal Daftar', width: 22 },
+      ];
+      const customCols = evCustomFields.map((f) => ({ header: f.label, key: f.label, width: 24 }));
+      const allCols = [...baseCols, ...customCols];
 
       if (type === 'excel') {
         const wb = new ExcelJS.Workbook();
         const ws = wb.addWorksheet('Rekap Pendaftaran');
-        ws.columns = [
-          { header: 'No', key: 'No', width: 6 },
-          { header: 'Nama Lengkap', key: 'Nama Lengkap', width: 30 },
-          { header: 'Email', key: 'Email', width: 30 },
-          { header: 'No. WhatsApp', key: 'No. WhatsApp', width: 18 },
-          { header: 'Tanggal Daftar', key: 'Tanggal Daftar', width: 22 },
-        ];
+        ws.columns = allCols;
         const titleRow = ws.addRow([title]);
         const countRow = ws.addRow([`Total Pendaftar: ${registrations.length}`]);
         ws.addRow([]);
         registrations.forEach((r, i) => {
-          ws.addRow({
+          const row = {
             'No': i + 1,
             'Nama Lengkap': r.fullName || '',
             'Email': r.email || '',
             'No. WhatsApp': r.whatsapp || '',
-            'Tanggal Daftar': formatDateTime(r.createdAt),
-          });
+            'Tanggal Daftar': formatDateOnly(r.createdAt),
+          };
+          const cf = r.customFields || {};
+          evCustomFields.forEach((f) => { row[f.label] = cf[f.label] || ''; });
+          ws.addRow(row);
         });
-        ws.mergeCells(titleRow.number, 1, titleRow.number, 5);
-        ws.mergeCells(countRow.number, 1, countRow.number, 5);
+        ws.mergeCells(titleRow.number, 1, titleRow.number, allCols.length);
+        ws.mergeCells(countRow.number, 1, countRow.number, allCols.length);
         titleRow.getCell(1).font = { bold: true, size: 14, color: { argb: 'FF0D6EFD' } };
         countRow.getCell(1).font = { size: 10, color: { argb: 'FF6C757D' } };
 
@@ -143,7 +225,7 @@ export default function RegistrationPage() {
         a.click();
         URL.revokeObjectURL(url);
       } else {
-        const doc = new jsPDF();
+        const doc = new jsPDF({ orientation: evCustomFields.length > 3 ? 'landscape' : 'portrait' });
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(14);
         doc.setTextColor(13, 110, 253);
@@ -153,22 +235,27 @@ export default function RegistrationPage() {
         doc.setTextColor(108, 117, 125);
         doc.text(`GPI Eluzai Kids — Sekolah Minggu`, 14, 22);
         doc.text(`Total Pendaftar: ${registrations.length}`, 14, 28);
-        autoTable(doc, {
-          startY: 34,
-          head: [['No', 'Nama Lengkap', 'Email', 'No. WhatsApp', 'Tanggal Daftar']],
-          body: registrations.map((r, i) => [
+        const head = [['No', 'Nama Lengkap', 'Email', 'No. WhatsApp', 'Tanggal Daftar', ...evCustomFields.map((f) => f.label)]];
+        const body = registrations.map((r, i) => {
+          const cf = r.customFields || {};
+          return [
             String(i + 1),
             r.fullName || '',
             r.email || '',
             r.whatsapp || '',
-            formatDateTime(r.createdAt),
-          ]),
+            formatDateOnly(r.createdAt),
+            ...evCustomFields.map((f) => cf[f.label] || ''),
+          ];
+        });
+        autoTable(doc, {
+          startY: 34,
+          head,
+          body,
           theme: 'striped',
           headStyles: { fillColor: [13, 110, 253], fontSize: 8, fontStyle: 'bold' },
           styles: { fontSize: 8, cellPadding: 2.5 },
           columnStyles: {
             0: { cellWidth: 10, halign: 'center' },
-            4: { cellWidth: 28 },
           },
         });
         doc.save(`${title}.pdf`);
@@ -234,9 +321,16 @@ export default function RegistrationPage() {
             title="Data Pendaftaran"
             icon="users"
             actions={
-              <button className="btn-dev btn-dev-ghost btn-sm-dev" onClick={() => setReloadKey((k) => k + 1)} title="Segarkan">
-                <Icon name="refresh" size={15} /> Segarkan
-              </button>
+              <div className="d-flex gap-2">
+                {selectedEvent && (
+                  <button className="btn-dev btn-dev-ghost btn-sm-dev" onClick={openFormEditor} title="Edit Form Pendaftaran">
+                    <Icon name="edit" size={15} /> Edit Form
+                  </button>
+                )}
+                <button className="btn-dev btn-dev-ghost btn-sm-dev" onClick={() => setReloadKey((k) => k + 1)} title="Segarkan">
+                  <Icon name="refresh" size={15} /> Segarkan
+                </button>
+              </div>
             }
           >
             {/* Toolbar */}
@@ -306,6 +400,11 @@ export default function RegistrationPage() {
                       {selectedEventObj.formActive ? 'Form Aktif' : 'Form Nonaktif'}
                     </span>
                   )}
+                  {selectedEventObj && Array.isArray(selectedEventObj.customFormFields) && selectedEventObj.customFormFields.length > 0 && (
+                    <span className="pill pill-blue">
+                      {selectedEventObj.customFormFields.length} Kolom Custom
+                    </span>
+                  )}
                 </div>
                 <div className="table-responsive">
                   <table className="dev-table">
@@ -315,6 +414,9 @@ export default function RegistrationPage() {
                         <th>Nama Lengkap</th>
                         <th>Email</th>
                         <th>No. WhatsApp</th>
+                        {selectedEventObj && Array.isArray(selectedEventObj.customFormFields) && selectedEventObj.customFormFields.map((f) => (
+                          <th key={f.label}>{f.label}</th>
+                        ))}
                         <th>Tanggal Daftar</th>
                       </tr>
                     </thead>
@@ -327,9 +429,16 @@ export default function RegistrationPage() {
                           </td>
                           <td>{r.email}</td>
                           <td>{r.whatsapp}</td>
+                          {selectedEventObj && Array.isArray(selectedEventObj.customFormFields) && selectedEventObj.customFormFields.map((f) => (
+                            <td key={f.label}>
+                              <span className="text-muted-dev" style={{ fontSize: '0.8rem' }}>
+                                {(r.customFields || {})[f.label] || '–'}
+                              </span>
+                            </td>
+                          ))}
                           <td>
                             <span className="text-muted-dev" style={{ fontSize: '0.8rem' }}>
-                              {formatDateTime(r.createdAt)}
+                              {formatDateOnly(r.createdAt)}
                             </span>
                           </td>
                         </tr>
@@ -341,6 +450,148 @@ export default function RegistrationPage() {
             )}
           </Card>
         </>
+      )}
+
+      {/* ---- Modal Form Editor ---- */}
+      {formEditorOpen && (
+        <div className="modal-backdrop-eluzai" onMouseDown={(e) => e.target === e.currentTarget && setFormEditorOpen(false)}>
+          <div className="modal-card-eluzai" style={{ maxWidth: 640 }}>
+            <div className="d-flex justify-content-between align-items-center p-4 pb-0">
+              <h5 className="mb-0">Edit Form Pendaftaran</h5>
+              <button className="icon-btn" onClick={() => setFormEditorOpen(false)} aria-label="Tutup">
+                <Icon name="x" size={18} />
+              </button>
+            </div>
+            <form onSubmit={saveFormConfig}>
+              <div className="p-4 d-flex flex-column gap-3">
+                {/* Judul Form */}
+                <div>
+                  <label className="form-label fw-semibold text-sm">Judul Form</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    value={formTitle}
+                    onChange={(e) => setFormTitle(e.target.value)}
+                    placeholder={`Form Pendaftaran ${selectedEventObj?.title || ''}`}
+                    maxLength={100}
+                  />
+                  <div className="text-sm text-secondary mt-1">
+                    Kosongkan untuk judul default: &quot;Form Pendaftaran&quot;
+                  </div>
+                </div>
+
+                {/* Custom Fields */}
+                <div>
+                  <div className="d-flex justify-content-between align-items-center mb-2">
+                    <label className="form-label fw-semibold text-sm mb-0">Field Form Tambahan</label>
+                    <button type="button" className="btn-dev btn-dev-ghost btn-sm-dev" onClick={addField}>
+                      <Icon name="plus" size={14} /> Tambah Field
+                    </button>
+                  </div>
+
+                  {customFields.length === 0 ? (
+                    <div className="text-sm text-secondary text-center py-3" style={{ background: 'var(--dev-bg)', borderRadius: 8 }}>
+                      Belum ada field tambahan. Klik &quot;Tambah Field&quot; untuk menambah kolom baru.
+                    </div>
+                  ) : (
+                    <div className="d-flex flex-column gap-2">
+                      {customFields.map((field, idx) => (
+                        <div key={idx} className="p-3" style={{ background: 'var(--dev-bg)', borderRadius: 8, border: '1px solid var(--dev-border)' }}>
+                          <div className="d-flex align-items-center gap-2 mb-2">
+                            <button type="button" className="icon-btn" onClick={() => moveField(idx, -1)} disabled={idx === 0} title="Naikkan">
+                              <Icon name="chevron-up" size={14} />
+                            </button>
+                            <button type="button" className="icon-btn" onClick={() => moveField(idx, 1)} disabled={idx === customFields.length - 1} title="Turunkan">
+                              <Icon name="chevron-down" size={14} />
+                            </button>
+                            <span className="text-sm fw-semibold flex-grow-1">#{idx + 1}</span>
+                            <div className="form-check form-switch mb-0">
+                              <input
+                                className="form-check-input"
+                                type="checkbox"
+                                checked={field.required}
+                                onChange={(e) => updateField(idx, 'required', e.target.checked)}
+                                id={`cf-req-${idx}`}
+                              />
+                              <label className="form-check-label text-sm" htmlFor={`cf-req-${idx}`}>Wajib</label>
+                            </div>
+                            <button type="button" className="icon-btn danger" onClick={() => removeField(idx)} title="Hapus field">
+                              <Icon name="trash" size={14} />
+                            </button>
+                          </div>
+                          <div className="row g-2">
+                            <div className="col-md-5">
+                              <input
+                                type="text"
+                                className="form-control form-control-sm"
+                                value={field.label}
+                                onChange={(e) => updateField(idx, 'label', e.target.value)}
+                                placeholder="Nama kolom (contoh: Pilihan Sesi)"
+                                maxLength={100}
+                                required
+                              />
+                            </div>
+                            <div className="col-md-3">
+                              <select
+                                className="form-select form-select-sm"
+                                value={field.type}
+                                onChange={(e) => {
+                                  updateField(idx, 'type', e.target.value);
+                                  if (e.target.value !== 'select') updateField(idx, 'options', []);
+                                }}
+                              >
+                                {FIELD_TYPES.map((ft) => (
+                                  <option key={ft.value} value={ft.value}>{ft.label}</option>
+                                ))}
+                              </select>
+                            </div>
+                            <div className="col-md-4">
+                              <input
+                                type="text"
+                                className="form-control form-control-sm"
+                                value={field.placeholder || ''}
+                                onChange={(e) => updateField(idx, 'placeholder', e.target.value)}
+                                placeholder="Placeholder (opsional)"
+                                maxLength={200}
+                              />
+                            </div>
+                          </div>
+                          {field.type === 'select' && (
+                            <div className="mt-2">
+                              <label className="form-label text-sm mb-1">Pilihan (satu per baris)</label>
+                              <textarea
+                                className="form-control form-control-sm"
+                                rows={2}
+                                value={(field.options || []).join('\n')}
+                                onChange={(e) => updateField(idx, 'options', e.target.value.split('\n').map((s) => s.trim()).filter(Boolean))}
+                                placeholder={"Sesi 1\nSesi 2"}
+                              />
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="d-flex justify-content-end gap-2 p-4 pt-0">
+                <button type="button" className="btn-dev btn-dev-outline" onClick={() => setFormEditorOpen(false)}>
+                  Batal
+                </button>
+                <button type="submit" className="btn-dev btn-dev-masuk" disabled={savingForm}>
+                  {savingForm ? (
+                    <>
+                      <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden />
+                      Menyimpan...
+                    </>
+                  ) : (
+                    'Simpan Konfigurasi'
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );
