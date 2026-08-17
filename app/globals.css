@@ -741,15 +741,10 @@ a:hover {
   opacity: 1;
 }
 
-/* Ikon pintu Masuk: biru persis tombol "Masuk" admin (#1d4ed8) di
-   light-mode; di dark-mode memakai var(--dev-primary) agar tetap
-   terbaca di latar gelap. */
+/* Ikon pintu Masuk: putih — mewarisi warna teks tombol biru
+   (.btn-dev-masuk { color: #fff }) agar kontras di latar biru. */
 .login-card .masuk-icon {
-  color: #1d4ed8;
-}
-
-[data-theme='dark'] .login-card .masuk-icon {
-  color: var(--dev-primary);
+  color: #fff;
 }
 
 .login-card .dev-label {
